@@ -1,5 +1,7 @@
 # Twitch Godot
 
+![image](https://github.com/devnull-twitch/godot-twitch/assets/97809736/f0a94561-c8c5-4d71-8063-fe4b0e569cdc)
+
 This project is somewhere between early alpha and abandoned. 
 
 ## Setup and build
