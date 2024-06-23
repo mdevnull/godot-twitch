@@ -1,0 +1,244 @@
+[gd_scene load_steps=8 format=3 uid="uid://bmhmiv43fqo4c"]
+
+[ext_resource type="Script" path="res://script/EventBase.gd" id="1_3his8"]
+[ext_resource type="Script" path="res://script/UI.gd" id="1_23fuu"]
+[ext_resource type="Script" path="res://script/EventPlayer.gd" id="1_y43os"]
+
+[sub_resource type="Animation" id="Animation_3r13o"]
+resource_name = "run_follow"
+length = 5.0
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("FollowEvent:anim_process")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0, 5),
+"transitions": PackedFloat32Array(1, 1),
+"update": 0,
+"values": [0.0, 1.0]
+}
+
+[sub_resource type="Animation" id="Animation_g4rit"]
+resource_name = "run_gift"
+length = 5.0
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("GiftEvent:anim_process")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0, 1, 4, 5),
+"transitions": PackedFloat32Array(1, 1, 1, 1),
+"update": 0,
+"values": [0.0, 0.4, 0.6, 1.0]
+}
+
+[sub_resource type="Animation" id="Animation_7ynt2"]
+resource_name = "run_sub"
+length = 5.0
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("SubEvent:anim_process")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0, 5),
+"transitions": PackedFloat32Array(1, 1),
+"update": 0,
+"values": [0.0, 1.0]
+}
+
+[sub_resource type="AnimationLibrary" id="AnimationLibrary_u6njo"]
+_data = {
+"run_follow": SubResource("Animation_3r13o"),
+"run_gift": SubResource("Animation_g4rit"),
+"run_sub": SubResource("Animation_7ynt2")
+}
+
+[node name="Node" type="Node2D"]
+
+[node name="GodotTwitch" type="GodotTwitch" parent="."]
+on_follow = Signal()
+on_subscribtion = Signal()
+on_sub_gift = Signal()
+on_raid = Signal()
+on_redeem = Signal()
+on_shoutout_create = Signal()
+on_donation = Signal()
+on_poll_begin = Signal()
+on_poll_end = Signal()
+on_prediction_begin = Signal()
+on_prediction_lock = Signal()
+on_prediction_end = Signal()
+unique_name_in_owner = true
+
+[node name="EventContainer" type="Node2D" parent="."]
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="EventContainer"]
+libraries = {
+"": SubResource("AnimationLibrary_u6njo")
+}
+script = ExtResource("1_y43os")
+
+[node name="FollowEvent" type="Node2D" parent="EventContainer"]
+script = ExtResource("1_3his8")
+
+[node name="ContentContainer" type="Node2D" parent="EventContainer/FollowEvent"]
+position = Vector2(200, 200)
+
+[node name="HBoxContainer" type="HBoxContainer" parent="EventContainer/FollowEvent/ContentContainer"]
+offset_right = 40.0
+offset_bottom = 40.0
+
+[node name="Label" type="Label" parent="EventContainer/FollowEvent/ContentContainer/HBoxContainer"]
+layout_mode = 2
+text = "New follow"
+
+[node name="NameLabel" type="Label" parent="EventContainer/FollowEvent/ContentContainer/HBoxContainer"]
+layout_mode = 2
+text = "TEST"
+
+[node name="SubEvent" type="Node2D" parent="EventContainer"]
+script = ExtResource("1_3his8")
+anim_process = 1.0
+
+[node name="ContentContainer" type="Node2D" parent="EventContainer/SubEvent"]
+position = Vector2(200, 200)
+
+[node name="HBoxContainer" type="HBoxContainer" parent="EventContainer/SubEvent/ContentContainer"]
+offset_right = 40.0
+offset_bottom = 40.0
+
+[node name="NameLabel" type="Label" parent="EventContainer/SubEvent/ContentContainer/HBoxContainer"]
+layout_mode = 2
+text = "TEST"
+
+[node name="Text1" type="Label" parent="EventContainer/SubEvent/ContentContainer/HBoxContainer"]
+layout_mode = 2
+text = "subscibes for"
+
+[node name="MonthsLabel" type="Label" parent="EventContainer/SubEvent/ContentContainer/HBoxContainer"]
+layout_mode = 2
+text = "999"
+
+[node name="Text2" type="Label" parent="EventContainer/SubEvent/ContentContainer/HBoxContainer"]
+layout_mode = 2
+text = "months as tier"
+
+[node name="TierLabel" type="Label" parent="EventContainer/SubEvent/ContentContainer/HBoxContainer"]
+layout_mode = 2
+text = "999"
+
+[node name="GiftEvent" type="Node2D" parent="EventContainer"]
+script = ExtResource("1_3his8")
+
+[node name="ContentContainer" type="Node2D" parent="EventContainer/GiftEvent"]
+position = Vector2(200, 200)
+
+[node name="HBoxContainer" type="HBoxContainer" parent="EventContainer/GiftEvent/ContentContainer"]
+offset_right = 40.0
+offset_bottom = 40.0
+
+[node name="NameLabel" type="Label" parent="EventContainer/GiftEvent/ContentContainer/HBoxContainer"]
+layout_mode = 2
+text = "TEST"
+
+[node name="Text1" type="Label" parent="EventContainer/GiftEvent/ContentContainer/HBoxContainer"]
+layout_mode = 2
+text = "gifted"
+
+[node name="GiftAmountLabel" type="Label" parent="EventContainer/GiftEvent/ContentContainer/HBoxContainer"]
+layout_mode = 2
+text = "999"
+
+[node name="Text2" type="Label" parent="EventContainer/GiftEvent/ContentContainer/HBoxContainer"]
+layout_mode = 2
+text = "tier"
+
+[node name="TierLabel" type="Label" parent="EventContainer/GiftEvent/ContentContainer/HBoxContainer"]
+layout_mode = 2
+text = "999"
+
+[node name="Text3" type="Label" parent="EventContainer/GiftEvent/ContentContainer/HBoxContainer"]
+layout_mode = 2
+text = "subs. They gifted"
+
+[node name="TotalAmountLabel" type="Label" parent="EventContainer/GiftEvent/ContentContainer/HBoxContainer"]
+layout_mode = 2
+text = "999"
+
+[node name="RaidEvent" type="Node2D" parent="EventContainer"]
+visible = false
+
+[node name="ContentContainer" type="Node2D" parent="EventContainer/RaidEvent"]
+position = Vector2(600, 100)
+
+[node name="VBoxContainer" type="VBoxContainer" parent="EventContainer/RaidEvent/ContentContainer"]
+offset_right = 40.0
+offset_bottom = 40.0
+
+[node name="Label" type="Label" parent="EventContainer/RaidEvent/ContentContainer/VBoxContainer"]
+layout_mode = 2
+text = "Incoming Raid by:"
+
+[node name="NameLabel" type="Label" parent="EventContainer/RaidEvent/ContentContainer/VBoxContainer"]
+layout_mode = 2
+text = "TEST"
+
+[node name="HBoxContainer" type="HBoxContainer" parent="EventContainer/RaidEvent/ContentContainer/VBoxContainer"]
+layout_mode = 2
+
+[node name="Label2" type="Label" parent="EventContainer/RaidEvent/ContentContainer/VBoxContainer/HBoxContainer"]
+layout_mode = 2
+text = "with"
+
+[node name="ViewerCount" type="Label" parent="EventContainer/RaidEvent/ContentContainer/VBoxContainer/HBoxContainer"]
+layout_mode = 2
+text = "999"
+
+[node name="Label3" type="Label" parent="EventContainer/RaidEvent/ContentContainer/VBoxContainer/HBoxContainer"]
+layout_mode = 2
+text = "viewers"
+
+[node name="TextureRect" type="TextureRect" parent="EventContainer/RaidEvent/ContentContainer/VBoxContainer"]
+custom_minimum_size = Vector2(0, 150)
+layout_mode = 2
+expand_mode = 2
+stretch_mode = 5
+
+[node name="UI" type="CanvasLayer" parent="."]
+script = ExtResource("1_23fuu")
+
+[node name="CenterContainer" type="CenterContainer" parent="UI"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="PanelContainer" type="PanelContainer" parent="UI/CenterContainer"]
+layout_mode = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="UI/CenterContainer/PanelContainer"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="VBoxContainer" type="VBoxContainer" parent="UI/CenterContainer/PanelContainer/MarginContainer"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="UI/CenterContainer/PanelContainer/MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "Godot Twitch"
+
+[node name="Button" type="Button" parent="UI/CenterContainer/PanelContainer/MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "Login to twitch"
+
+[connection signal="pressed" from="UI/CenterContainer/PanelContainer/MarginContainer/VBoxContainer/Button" to="UI" method="_on_open_auh"]

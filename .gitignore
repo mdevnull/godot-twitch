@@ -1,0 +1,5 @@
+/.secrets
+/graphics/.godot
+/graphics/*.dll
+/graphics/*.so
+/graphics/*.dylib
