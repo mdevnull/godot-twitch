@@ -11,6 +11,8 @@ func _ready():
   twitch_node.on_subscribtion.connect(_on_godot_twitch_subscribtion)
   twitch_node.on_sub_gift.connect(_on_godot_twitch_giftsub)
   twitch_node.on_raid.connect(_on_godot_twitch_raid)
+  twitch_node.on_poll_begin.connect(_on_godot_twitch_poll_begin)
+  twitch_node.on_poll_end.connect(_on_godot_twitch_poll_end)
 
 func _on_godot_twitch_follow(username: String):
   var name_label = follow_node.get_node("ContentContainer/HBoxContainer/NameLabel") as Label
@@ -47,6 +49,12 @@ func _on_godot_twitch_raid(username: String, profile_url: String, viewer_count: 
   raid_node.visible = true
   await get_tree().create_timer(5.0).timeout
   raid_node.visible = false
+
+func _on_godot_twitch_poll_begin(_title: String, _lockTimeUnix: int, choices: Array[Dictionary]):
+  print(choices)
+
+func _on_godot_twitch_poll_end(_title: String, choices: Array[Dictionary]):
+  print(choices)
 
 func change_img_from_url(img_url: String, texture_rect: TextureRect):
   # Create an HTTP request node and connect its completion signal.
