@@ -15,6 +15,15 @@ import (
 	"grow.graphics/gd/gdextension"
 )
 
+type (
+	LatestFollowerUpdate struct {
+		Username string
+	}
+	LatestSubscriberUpdate struct {
+		Username string
+	}
+)
+
 type GodotTwitch struct {
 	gd.Class[GodotTwitch, gd.Node]
 
@@ -47,16 +56,24 @@ type GodotTwitch struct {
 
 	eventProcessLock  sync.Mutex
 	eventProcessQueue []lib.TwitchMessage
+
+	apiInfoResponseLock  sync.Mutex
+	apiInfoResponseQueue []interface{}
 }
 
 func (h *GodotTwitch) Ready(godoCtx gd.Context) {
+	if h.ClientID.String() == "" || h.ClientSecret.String() == "" {
+		lib.LogErr(godoCtx, "missing client id or client secret")
+		return
+	}
+
 	client, err := helix.NewClient(&helix.Options{
 		ClientID:     h.ClientID.String(),
 		ClientSecret: h.ClientSecret.String(),
 		RedirectURI:  "http://localhost:8189/",
 	})
 	if err != nil {
-		fmt.Printf("error: unable to create client: %s\n", err.Error())
+		lib.LogErr(godoCtx, fmt.Sprintf("unable to create client: %s\n", err.Error()))
 		return
 	}
 
@@ -72,8 +89,15 @@ func (h *GodotTwitch) Ready(godoCtx gd.Context) {
 	h.AuthURL = h.Pin().String(authURLString)
 	lib.LogInfo(godoCtx, authURLString)
 
+	h.LatestFollower = h.Pin().String("")
+	h.LatestSubscriber = h.Pin().String("")
+
+	h.apiInfoResponseLock = sync.Mutex{}
+	h.apiInfoResponseQueue = make([]interface{}, 0)
 	h.eventProcessLock = sync.Mutex{}
+	h.eventProcessQueue = make([]lib.TwitchMessage, 0)
 	h.twitchClient = client
+
 	go func() {
 		clientAuthedMsgChan := lib.WebServer(client)
 		// wait for auth callback
@@ -85,6 +109,38 @@ func (h *GodotTwitch) Ready(godoCtx gd.Context) {
 			return
 		}
 		broadcasterUserID := broadcasterUserResp.Data.Users[0].ID
+
+		followerResp, err := client.GetChannelFollows(&helix.GetChannelFollowsParams{
+			BroadcasterID: broadcasterUserID,
+			First:         1,
+		})
+		if err != nil {
+			fmt.Printf("error: unable to get latest channel follower: %s\n", err.Error())
+		} else {
+			if len(followerResp.Data.Channels) > 0 {
+				follower := followerResp.Data.Channels[0]
+
+				h.apiInfoResponseLock.Lock()
+				h.apiInfoResponseQueue = append(h.apiInfoResponseQueue, LatestFollowerUpdate{follower.Username})
+				h.apiInfoResponseLock.Unlock()
+			}
+		}
+
+		subscribersResp, err := client.GetSubscriptions(&helix.SubscriptionsParams{
+			BroadcasterID: broadcasterUserID,
+			First:         1,
+		})
+		if err != nil {
+			fmt.Printf("error: unable to get latest subscriber: %s\n", err.Error())
+		} else {
+			if len(subscribersResp.Data.Subscriptions) > 0 {
+				subscriber := subscribersResp.Data.Subscriptions[0]
+
+				h.apiInfoResponseLock.Lock()
+				h.apiInfoResponseQueue = append(h.apiInfoResponseQueue, LatestSubscriberUpdate{subscriber.UserName})
+				h.apiInfoResponseLock.Unlock()
+			}
+		}
 
 		msgChan, sessChan := lib.Websocket(bool(h.UseDebugWS))
 		for {
@@ -108,6 +164,11 @@ func (h *GodotTwitch) Ready(godoCtx gd.Context) {
 }
 
 func (h *GodotTwitch) Process(godoCtx gd.Context, delta gd.Float) {
+	h.handleApiUpdateTick(godoCtx)
+	h.handleEventTick(godoCtx)
+}
+
+func (h *GodotTwitch) handleEventTick(godoCtx gd.Context) {
 	h.eventProcessLock.Lock()
 	defer h.eventProcessLock.Unlock()
 
@@ -119,6 +180,37 @@ func (h *GodotTwitch) Process(godoCtx gd.Context, delta gd.Float) {
 		h.handleEvent(godoCtx, msg)
 	}
 	h.eventProcessQueue = make([]lib.TwitchMessage, 0)
+}
+
+func (h *GodotTwitch) handleApiUpdateTick(godoCtx gd.Context) {
+	h.apiInfoResponseLock.Lock()
+	defer h.apiInfoResponseLock.Unlock()
+
+	if len(h.apiInfoResponseQueue) <= 0 {
+		return
+	}
+
+	for _, apiInfo := range h.apiInfoResponseQueue {
+		switch apiInfo := apiInfo.(type) {
+
+		case LatestFollowerUpdate:
+			if h.LatestFollower.String() != "" {
+				lib.LogInfo(godoCtx, "non empty follower string on api update. skip api update because event should bee more up to date")
+				continue
+			}
+			h.LatestFollower.Free()
+			h.LatestFollower = h.Pin().String(apiInfo.Username)
+
+		case LatestSubscriberUpdate:
+			if h.LatestSubscriber.String() != "" {
+				lib.LogInfo(godoCtx, "non empty follower string on api update. skip api update because event should bee more up to date")
+				continue
+			}
+			h.LatestSubscriber.Free()
+			h.LatestSubscriber = h.Pin().String(apiInfo.Username)
+		}
+	}
+	h.apiInfoResponseQueue = make([]interface{}, 0)
 }
 
 func (h *GodotTwitch) OpenAuthInBrowser(godoCtx gd.Context) {
@@ -154,24 +246,36 @@ func (h *GodotTwitch) handleEvent(godoCtx gd.Context, eventMsg lib.TwitchMessage
 
 	switch eventMsg.Payload.Subscription.Type {
 	case helix.EventSubTypeChannelFollow:
-		h.LatestFollower = h.readStringFromEvent(godoCtx, eventMsg.Payload.Event, "user_name")
-		h.OnFollow.Emit(h.LatestFollower)
+		tmpName := h.readStringFromEvent(godoCtx, eventMsg.Payload.Event, "user_name")
+
+		h.LatestFollower.Free()
+		h.LatestFollower = h.Pin().String(tmpName.String())
+
+		h.OnFollow.Emit(tmpName)
 	case helix.EventSubTypeChannelSubscription:
-		h.LatestSubscriber = h.readStringFromEvent(godoCtx, eventMsg.Payload.Event, "user_name")
+		tmpName := h.readStringFromEvent(godoCtx, eventMsg.Payload.Event, "user_name")
+
+		h.LatestSubscriber.Free()
+		h.LatestSubscriber = h.Pin().String(tmpName.String())
+
 		// only emit signal for non gift subs as we emit from the gift event for gifts and we
 		// we do not want double events
 		if !eventMsg.Payload.Event["is_gift"].(bool) {
 			tier := h.readIntFromEvent(godoCtx, eventMsg.Payload.Event, "tier")
-			h.OnSubscibtion.Emit(h.LatestSubscriber, gd.Int(1), tier)
+			h.OnSubscibtion.Emit(tmpName, gd.Int(1), tier)
 		}
 	case helix.EventSubTypeChannelSubscriptionMessage:
-		h.LatestSubscriber = h.readStringFromEvent(godoCtx, eventMsg.Payload.Event, "user_name")
+		tmpName := h.readStringFromEvent(godoCtx, eventMsg.Payload.Event, "user_name")
+
+		h.LatestSubscriber.Free()
+		h.LatestSubscriber = h.Pin().String(tmpName.String())
+
 		tier := h.readIntFromEvent(godoCtx, eventMsg.Payload.Event, "tier")
 		if tier >= 1000 {
 			tier = tier % 1000
 		}
 		months := h.readIntFromEvent(godoCtx, eventMsg.Payload.Event, "cumulative_months")
-		h.OnSubscibtion.Emit(h.LatestSubscriber, months, tier)
+		h.OnSubscibtion.Emit(tmpName, months, tier)
 	case helix.EventSubTypeChannelSubscriptionGift:
 		isAnonymous := h.readBoolFromEvent(godoCtx, eventMsg.Payload.Event, "is_anonymous")
 		var gifterName gd.String
