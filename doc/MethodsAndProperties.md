@@ -10,6 +10,8 @@
 
 |Name|Type|Description|
 |---|---|---|
-|AuthURL|String|URI to open to autheenticate with twitch|
-|LatestFollower|String|Username of latest follower|
-|LatestSubscriber|String|Username of latest subscriber|
+|auth_url|String|URI to open to autheenticate with twitch|
+|store_token|bool|If true tries to load tokens from disk and stores new tokens to disk|
+|is_authed|bool|True if client has been authenticated. This can be true when _ready if store_token is true and valid tokens are stored on disk|
+|latest_follower|String|Username of latest follower|
+|latest_subscriber|String|Username of latest subscriber|

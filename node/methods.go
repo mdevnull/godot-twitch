@@ -48,10 +48,21 @@ func (h *GodotTwitch) Ready(godoCtx gd.Context) {
 	h.eventProcessQueue = make([]lib.TwitchMessage, 0)
 	h.twitchClient = client
 
+	h.IsAuthenticated = gd.Bool(false)
+	// check if we have a access and refresh token to load
+	if bool(h.StoreToken) {
+		h.IsAuthenticated = gd.Bool(h.readTokens(godoCtx))
+	}
+
 	go func() {
-		clientAuthedMsgChan := lib.WebServer(client)
-		// wait for auth callback
-		<-clientAuthedMsgChan
+		// either read from file failed or its the first start so run through normal auth
+		if !h.IsAuthenticated {
+			clientAuthedMsgChan := lib.WebServer(client)
+			// wait for auth callback
+			<-clientAuthedMsgChan
+
+			h.hasNewToken = true
+		}
 
 		broadcasterUserResp, err := client.GetUsers(&helix.UsersParams{})
 		if err != nil {
@@ -114,6 +125,20 @@ func (h *GodotTwitch) Ready(godoCtx gd.Context) {
 }
 
 func (h *GodotTwitch) Process(godoCtx gd.Context, delta gd.Float) {
+	if h.hasNewToken {
+		h.hasNewToken = false
+		h.IsAuthenticated = true
+
+		if bool(h.StoreToken) {
+			var fa gd.FileAccess
+			accessWriteFa := fa.Open(godoCtx, godoCtx.String("user://twitch_access_token.txt"), gd.FileAccessModeFlags(2))
+			accessWriteFa.StoreString(godoCtx.String(h.twitchClient.GetUserAccessToken()))
+
+			refreshWriteFa := fa.Open(godoCtx, godoCtx.String("user://twitch_refresh_token.txt"), gd.FileAccessModeFlags(2))
+			refreshWriteFa.StoreString(godoCtx.String(h.twitchClient.GetRefreshToken()))
+		}
+	}
+
 	h.handleApiUpdateTick(godoCtx)
 	h.handleEventTick(godoCtx)
 }
@@ -138,4 +163,28 @@ func (h *GodotTwitch) OpenAuthInBrowser(godoCtx gd.Context) {
 	if err := openCmd.Run(); err != nil {
 		lib.LogErr(godoCtx, fmt.Sprintf(" error opening browser for auth: %s", err.Error()))
 	}
+}
+
+func (h *GodotTwitch) readTokens(godoCtx gd.Context) bool {
+	var fa gd.FileAccess
+	if !fa.FileExists(godoCtx, godoCtx.String("user://twitch_access_token.txt")) {
+		return false
+	}
+	if !fa.FileExists(godoCtx, godoCtx.String("user://twitch_refresh_token.txt")) {
+		return false
+	}
+
+	accessReadFa := fa.Open(godoCtx, godoCtx.String("user://twitch_access_token.txt"), gd.FileAccessModeFlags(1))
+	gdAccess := accessReadFa.GetAsText(godoCtx, true)
+
+	refreshReadFa := fa.Open(godoCtx, godoCtx.String("user://twitch_refresh_token.txt"), gd.FileAccessModeFlags(1))
+	gdRefresh := refreshReadFa.GetAsText(godoCtx, true)
+
+	if gdAccess.String() == "" || gdRefresh.String() == "" {
+		return false
+	}
+
+	h.twitchClient.SetUserAccessToken(gdAccess.String())
+	h.twitchClient.SetRefreshToken(gdRefresh.String())
+	return true
 }

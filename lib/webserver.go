@@ -21,6 +21,7 @@ func WebServer(twitchClient *helix.Client) <-chan bool {
 		}
 
 		twitchClient.SetUserAccessToken(resp.Data.AccessToken)
+		twitchClient.SetRefreshToken(resp.Data.RefreshToken)
 		clientAuthChan <- true
 	})
 

@@ -14,8 +14,10 @@ type GodotTwitch struct {
 	ClientID     gd.String `gd:"twitch_client_id"`
 	ClientSecret gd.String `gd:"twitch_client_secret"`
 
-	AuthURL    gd.String `gd:"auth_url"`
-	UseDebugWS gd.Bool   `gd:"use_debug_ws_server"`
+	AuthURL         gd.String `gd:"auth_url"`
+	UseDebugWS      gd.Bool   `gd:"use_debug_ws_server"`
+	StoreToken      gd.Bool   `gd:"store_token"`
+	IsAuthenticated gd.Bool   `gd:"is_authed"`
 
 	OnFollow       gd.SignalAs[func(gd.String)] `gd:"on_follow"`
 	LatestFollower gd.String                    `gd:"latest_follower"`
@@ -43,6 +45,8 @@ type GodotTwitch struct {
 
 	apiInfoResponseLock  sync.Mutex
 	apiInfoResponseQueue []interface{}
+
+	hasNewToken bool
 }
 
 type (

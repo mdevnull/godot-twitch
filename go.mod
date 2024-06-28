@@ -7,7 +7,7 @@ require (
 	github.com/charmbracelet/bubbletea v0.26.5
 	github.com/gorilla/websocket v1.5.2
 	github.com/nicklaw5/helix/v2 v2.28.3
-	grow.graphics/gd v0.0.0-20240621210912-65385949944f
+	grow.graphics/gd v0.0.0-20240628012856-091b284b8cd9
 )
 
 require (
@@ -41,5 +41,5 @@ require (
 	golang.org/x/text v0.16.0 // indirect
 	grow.graphics/uc v0.0.0-20240128001120-57fde712a2f4 // indirect
 	grow.graphics/xy v0.0.0-20240603021049-7427233fc3a9 // indirect
-	runtime.link v0.0.0-20240622002614-922451c10d42 // indirect
+	runtime.link v0.0.0-20240625071702-395c74cb4e94 // indirect
 )
