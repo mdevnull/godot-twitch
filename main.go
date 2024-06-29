@@ -13,4 +13,5 @@ func main() {
 		panic("Unable to link to godot")
 	}
 	gd.Register[node.GodotTwitch](godot)
+	gd.Register[node.GodotTwitchEmoteStore](godot)
 }
