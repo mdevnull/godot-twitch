@@ -1,21 +1,21 @@
 module main
 
-go 1.22.4
+go 1.23.2
 
 require (
 	github.com/charmbracelet/bubbles v0.18.0
 	github.com/charmbracelet/bubbletea v0.26.5
+	github.com/charmbracelet/huh v0.4.2
+	github.com/charmbracelet/lipgloss v0.11.0
 	github.com/gorilla/websocket v1.5.2
 	github.com/nicklaw5/helix/v2 v2.28.3
-	grow.graphics/gd v0.0.0-20240628012856-091b284b8cd9
+	graphics.gd v0.0.0-20250109073924-dc25a593ebc2
 )
 
 require (
 	github.com/atotto/clipboard v0.1.4 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/catppuccin/go v0.2.0 // indirect
-	github.com/charmbracelet/huh v0.4.2 // indirect
-	github.com/charmbracelet/lipgloss v0.11.0 // indirect
 	github.com/charmbracelet/x/ansi v0.1.2 // indirect
 	github.com/charmbracelet/x/exp/strings v0.0.0-20240524151031-ff83003bf67a // indirect
 	github.com/charmbracelet/x/input v0.1.1 // indirect
@@ -34,12 +34,11 @@ require (
 	github.com/muesli/termenv v0.15.2 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/sahilm/fuzzy v0.1.1-0.20230530133925-c48e322e2a8f // indirect
+	github.com/tetratelabs/wazero v1.8.2 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	golang.org/x/net v0.23.0 // indirect
 	golang.org/x/sync v0.7.0 // indirect
 	golang.org/x/sys v0.21.0 // indirect
 	golang.org/x/text v0.16.0 // indirect
-	grow.graphics/uc v0.0.0-20240128001120-57fde712a2f4 // indirect
-	grow.graphics/xy v0.0.0-20240603021049-7427233fc3a9 // indirect
-	runtime.link v0.0.0-20240625071702-395c74cb4e94 // indirect
+	runtime.link v0.0.0-20241203235822-266e6dd4f99d // indirect
 )

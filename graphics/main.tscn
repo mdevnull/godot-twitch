@@ -62,20 +62,9 @@ _data = {
 [node name="Node" type="Node2D"]
 
 [node name="GodotTwitch" type="GodotTwitch" parent="."]
-on_follow = Signal()
-on_subscribtion = Signal()
-on_sub_gift = Signal()
-on_raid = Signal()
-on_redeem = Signal()
-on_shoutout_create = Signal()
-on_donation = Signal()
-on_poll_begin = Signal()
-on_poll_progress = Signal()
-on_poll_end = Signal()
-on_prediction_begin = Signal()
-on_prediction_progress = Signal()
-on_prediction_lock = Signal()
-on_prediction_end = Signal()
+twitch_client_id = "1234"
+twitch_client_secret = "213"
+auth_url = "https://id.twitch.tv/oauth2/authorize"
 unique_name_in_owner = true
 
 [node name="EventContainer" type="Node2D" parent="."]

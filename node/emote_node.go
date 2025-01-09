@@ -7,21 +7,27 @@ import (
 	"net/http"
 	"sync"
 
-	"grow.graphics/gd"
+	"graphics.gd/classdb"
+	"graphics.gd/classdb/DirAccess"
+	"graphics.gd/classdb/FileAccess"
+	"graphics.gd/classdb/Image"
+	"graphics.gd/classdb/Node"
+	"graphics.gd/variant/Float"
+	"graphics.gd/variant/Signal"
 )
 
 type GodotTwitchEmoteStore struct {
-	gd.Class[GodotTwitchEmoteStore, gd.Node]
+	classdb.Extension[GodotTwitchEmoteStore, Node.Instance] `gd:"GodotTwitchEmoteStore"`
 
-	UseDarkTheme gd.Bool `gd:"use_dark_theme"`
-	Scale        gd.Int  `gd:"scale"`
+	UseDarkTheme bool `gd:"use_dark_theme"`
+	Scale        int  `gd:"scale"`
 
-	OnEmoteReady gd.SignalAs[func(gd.String)] `gd:"on_emote_ready"`
+	OnEmoteReady Signal.Solo[string] `gd:"on_emote_ready"`
 
 	emoteQueueLock       *sync.Mutex
 	emoteReadyEventQueue []string
 	emoteQueueIndex      int
-	emoteImageCache      map[string]gd.Object
+	emoteImageCache      map[string]Image.Instance
 	emoteByteChan        chan emoteByteResponse
 
 	httpClient *http.Client
@@ -32,21 +38,21 @@ type emoteByteResponse struct {
 	emoteID string
 }
 
-func (h *GodotTwitchEmoteStore) Ready(godoCtx gd.Context) {
+func (h *GodotTwitchEmoteStore) Ready() {
 	h.httpClient = &http.Client{}
 	h.emoteReadyEventQueue = make([]string, 0, 10)
 	h.emoteQueueLock = &sync.Mutex{}
 	h.emoteByteChan = make(chan emoteByteResponse, 1)
-	h.emoteImageCache = make(map[string]gd.Object)
+	h.emoteImageCache = make(map[string]Image.Instance)
 }
 
-func (h *GodotTwitchEmoteStore) Process(godoCtx gd.Context, delta gd.Float) {
+func (h *GodotTwitchEmoteStore) Process(delta Float.X) {
 	if h.emoteQueueIndex > 0 {
 		h.emoteQueueLock.Lock()
 		defer h.emoteQueueLock.Unlock()
 
 		for i := h.emoteQueueIndex; i > 0; i-- {
-			h.OnEmoteReady.Emit(godoCtx.String(h.emoteReadyEventQueue[i-1]))
+			h.OnEmoteReady.Emit(h.emoteReadyEventQueue[i-1])
 		}
 
 		h.emoteQueueIndex = 0
@@ -54,47 +60,40 @@ func (h *GodotTwitchEmoteStore) Process(godoCtx gd.Context, delta gd.Float) {
 
 	if len(h.emoteByteChan) > 0 {
 		emoteResponse := <-h.emoteByteChan
-
-		byteArray := h.Pin().PackedByteArray()
-		byteArray.Resize(int64(len(emoteResponse.content)))
-		for index, httpByte := range emoteResponse.content {
-			byteArray.SetIndex(gd.Int(index), httpByte)
+		if !DirAccess.DirExistsAbsolute("user://emotes") {
+			DirAccess.MakeDirAbsolute("user://emotes")
 		}
 
-		if !gd.DirAccess.DirExistsAbsolute(gd.DirAccess{}, godoCtx, godoCtx.String("user://emotes")) {
-			gd.DirAccess.MakeDirAbsolute(gd.DirAccess{}, godoCtx, godoCtx.String("user://emotes"))
-		}
+		path := fmt.Sprintf("user://emotes/%s", emoteResponse.emoteID)
+		accessWriteFa := FileAccess.Instance(FileAccess.Open(path, FileAccess.Write))
+		accessWriteFa.StoreBuffer(emoteResponse.content)
 
-		path := godoCtx.String(fmt.Sprintf("user://emotes/%s", emoteResponse.emoteID))
-		accessWriteFa := gd.FileAccess.Open(gd.FileAccess{}, godoCtx, path, gd.FileAccessWrite)
-		accessWriteFa.StoreBuffer(byteArray)
+		emoteImage := Image.New()
+		emoteImage.LoadPngFromBuffer(emoteResponse.content)
 
-		emoteImage := gd.Create(h.Pin(), &gd.Image{})
-		emoteImage.LoadPngFromBuffer(byteArray)
-
-		h.emoteImageCache[emoteResponse.emoteID] = emoteImage.AsObject()
+		h.emoteImageCache[emoteResponse.emoteID] = emoteImage
 		h.addEventQueue(emoteResponse.emoteID)
 	}
 }
 
 // LoadEmote makes sure the emote is loaded and available and triggers a "on_emote_ready" after.
-func (h *GodotTwitchEmoteStore) LoadEmote(godoCtx gd.Context, emoteID gd.String) {
-	if _, isCached := h.emoteImageCache[emoteID.String()]; isCached {
+func (h *GodotTwitchEmoteStore) LoadEmote(emoteID string) {
+	if _, isCached := h.emoteImageCache[emoteID]; isCached {
 		h.OnEmoteReady.Emit(emoteID)
 		return
 	}
 
-	path := godoCtx.String(fmt.Sprintf("user://emotes/%s", emoteID.String()))
+	path := fmt.Sprintf("user://emotes/%s", emoteID)
 
-	if gd.FileAccess.FileExists(gd.FileAccess{}, godoCtx, path) {
-		emoteFa := gd.FileAccess.Open(gd.FileAccess{}, godoCtx, path, gd.FileAccessRead)
-		emoteBuffer := emoteFa.GetBuffer(godoCtx, emoteFa.GetLength())
+	if FileAccess.FileExists(path) {
+		emoteFa := FileAccess.Instance(FileAccess.Open(path, FileAccess.Read))
+		emoteBuffer := emoteFa.GetBuffer(emoteFa.GetLength())
 
-		emoteImage := gd.Create(h.Pin(), &gd.Image{})
+		emoteImage := Image.New()
 		emoteImage.LoadPngFromBuffer(emoteBuffer)
 
-		h.emoteImageCache[emoteID.String()] = emoteImage.AsObject()
-		h.addEventQueue(emoteID.String())
+		h.emoteImageCache[emoteID] = emoteImage
+		h.addEventQueue(emoteID)
 		return
 	}
 
@@ -111,13 +110,13 @@ func (h *GodotTwitchEmoteStore) LoadEmote(godoCtx gd.Context, emoteID gd.String)
 			int64(h.Scale),
 		))
 		if err != nil {
-			lib.LogErr(godoCtx, fmt.Sprintf("error loading emote: %s", err.Error()))
+			lib.LogErr(fmt.Sprintf("error loading emote: %s", err.Error()))
 			return
 		}
 
 		httpBytes, err := io.ReadAll(emoteResp.Body)
 		if err != nil {
-			lib.LogErr(godoCtx, fmt.Sprintf("error loading emote: %s", err.Error()))
+			lib.LogErr(fmt.Sprintf("error loading emote: %s", err.Error()))
 			return
 		}
 
@@ -125,12 +124,12 @@ func (h *GodotTwitchEmoteStore) LoadEmote(godoCtx gd.Context, emoteID gd.String)
 			content: httpBytes,
 			emoteID: emoteIdStr,
 		}
-	}(emoteID.String())
+	}(emoteID)
 }
 
 // GetEmote loads the image data and returns an gd.Image
-func (h *GodotTwitchEmoteStore) GetEmote(godoCtx gd.Context, emoteID gd.String) gd.Object {
-	return h.emoteImageCache[emoteID.String()]
+func (h *GodotTwitchEmoteStore) GetEmote(emoteID string) Image.Instance {
+	return h.emoteImageCache[emoteID]
 }
 
 func (h *GodotTwitchEmoteStore) addEventQueue(emoteID string) {

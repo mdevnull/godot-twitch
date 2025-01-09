@@ -3,20 +3,20 @@ package lib
 import (
 	"fmt"
 
-	"grow.graphics/gd"
+	"graphics.gd/classdb/Engine"
 )
 
-func LogWarn(godoCtx gd.Context, msg string) {
+func LogWarn(msg string) {
 	fullMsg := fmt.Sprintf("[color=orange][b]GodotTwitch Warning[/b]: %s[/color]", msg)
-	godoCtx.PrintRich(godoCtx.Variant(godoCtx.String(fullMsg)))
+	Engine.PrintRich(fullMsg)
 }
 
-func LogErr(godoCtx gd.Context, msg string) {
+func LogErr(msg string) {
 	fullMsg := fmt.Sprintf("[color=red][b]GodotTwitch Error[/b]: %s[/color]", msg)
-	godoCtx.PrintRich(godoCtx.Variant(godoCtx.String(fullMsg)))
+	Engine.PrintRich(fullMsg)
 }
 
-func LogInfo(godoCtx gd.Context, msg string) {
+func LogInfo(msg string) {
 	fullMsg := fmt.Sprintf("[color=purple][b]GodotTwitch[/b]: %s[/color]", msg)
-	godoCtx.PrintRich(godoCtx.Variant(godoCtx.String(fullMsg)))
+	Engine.PrintRich(fullMsg)
 }

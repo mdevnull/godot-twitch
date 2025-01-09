@@ -1,17 +1,14 @@
 package main
 
 import (
-	"grow.graphics/gd"
-	"grow.graphics/gd/gdextension"
+	"graphics.gd/classdb"
+	"graphics.gd/startup"
 
 	"main/node"
 )
 
 func main() {
-	godot, ok := gdextension.Link()
-	if !ok {
-		panic("Unable to link to godot")
-	}
-	gd.Register[node.GodotTwitch](godot)
-	gd.Register[node.GodotTwitchEmoteStore](godot)
+	classdb.Register[node.GodotTwitch]()
+	classdb.Register[node.GodotTwitchEmoteStore]()
+	startup.Engine()
 }

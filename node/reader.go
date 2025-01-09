@@ -4,107 +4,105 @@ import (
 	"fmt"
 	"main/lib"
 	"strconv"
-
-	"grow.graphics/gd"
 )
 
-func (h *GodotTwitch) readStringFromEvent(godoCtx gd.Context, eventPayload map[string]interface{}, key string) gd.String {
+func (h *GodotTwitch) readStringFromEvent(eventPayload map[string]interface{}, key string) string {
 	val, ok := eventPayload[key]
 	if !ok {
-		lib.LogErr(godoCtx, fmt.Sprintf("missing event data: %s", key))
-		return godoCtx.String("")
+		lib.LogErr(fmt.Sprintf("missing event data: %s", key))
+		return ""
 	}
 
 	switch v := val.(type) {
 	case string:
-		return godoCtx.String(v)
+		return v
 	case int:
-		return godoCtx.String(fmt.Sprintf("%d", v))
+		return fmt.Sprintf("%d", v)
 	case int32:
-		return godoCtx.String(fmt.Sprintf("%d", v))
+		return fmt.Sprintf("%d", v)
 	case int64:
-		return godoCtx.String(fmt.Sprintf("%d", v))
+		return fmt.Sprintf("%d", v)
 	case uint:
-		return godoCtx.String(fmt.Sprintf("%d", v))
+		return fmt.Sprintf("%d", v)
 	case uint32:
-		return godoCtx.String(fmt.Sprintf("%d", v))
+		return fmt.Sprintf("%d", v)
 	case uint64:
-		return godoCtx.String(fmt.Sprintf("%d", v))
+		return fmt.Sprintf("%d", v)
 	case float32:
-		return godoCtx.String(fmt.Sprintf("%.2f", v))
+		return fmt.Sprintf("%.2f", v)
 	case float64:
-		return godoCtx.String(fmt.Sprintf("%.2f", v))
+		return fmt.Sprintf("%.2f", v)
 	case nil:
-		return godoCtx.String("")
+		return ""
 	default:
-		lib.LogWarn(godoCtx, fmt.Sprintf("unknown event data type %T", val))
-		return godoCtx.String("")
+		lib.LogWarn(fmt.Sprintf("unknown event data type %T", val))
+		return ""
 	}
 }
 
-func (h *GodotTwitch) readIntFromEvent(godoCtx gd.Context, eventPayload map[string]interface{}, key string) gd.Int {
+func (h *GodotTwitch) readIntFromEvent(eventPayload map[string]interface{}, key string) int {
 	val, ok := eventPayload[key]
 	if !ok {
-		lib.LogErr(godoCtx, fmt.Sprintf("missing event data: %s", key))
-		return gd.Int(0)
+		lib.LogErr(fmt.Sprintf("missing event data: %s", key))
+		return 0
 	}
 
 	switch v := val.(type) {
 	case string:
 		asint, err := strconv.Atoi(v)
 		if err != nil {
-			lib.LogErr(godoCtx, fmt.Sprintf("unable to read %s as int: %s", key, err.Error()))
-			return gd.Int(0)
+			lib.LogErr(fmt.Sprintf("unable to read %s as int: %s", key, err.Error()))
+			return 0
 		}
-		return gd.Int(asint)
+		return asint
 	case int:
-		return gd.Int(v)
+		return int(v)
 	case int32:
-		return gd.Int(v)
+		return int(v)
 	case int64:
-		return gd.Int(v)
+		return int(v)
 	case uint:
-		return gd.Int(v)
+		return int(v)
 	case uint32:
-		return gd.Int(v)
+		return int(v)
 	case uint64:
-		return gd.Int(v)
+		return int(v)
 	case float32:
-		return gd.Int(v)
+		return int(v)
 	case float64:
-		return gd.Int(v)
+		return int(v)
 	case nil:
-		return gd.Int(0)
+		return int(0)
 	default:
-		lib.LogWarn(godoCtx, fmt.Sprintf("unknown event data type %T", val))
-		return gd.Int(0)
+		lib.LogWarn(fmt.Sprintf("unknown event data type %T", val))
+		return int(0)
 	}
 }
 
-func (h *GodotTwitch) readBoolFromEvent(godoCtx gd.Context, eventPayload map[string]interface{}, key string) gd.Bool {
+func (h *GodotTwitch) readBoolFromEvent(eventPayload map[string]interface{}, key string) bool {
 	val, ok := eventPayload[key]
 	if !ok {
-		lib.LogErr(godoCtx, fmt.Sprintf("missing event data: %s", key))
-		return gd.Bool(false)
+		lib.LogErr(fmt.Sprintf("missing event data: %s", key))
+		return false
 	}
 
 	valAsBoo, isBool := val.(bool)
 	if !isBool {
-		lib.LogWarn(godoCtx, fmt.Sprintf("cannot read %T as bool", val))
-		return gd.Bool(false)
+		lib.LogWarn(fmt.Sprintf("cannot read %T as bool", val))
+		return false
 	}
 
-	return gd.Bool(valAsBoo)
+	return valAsBoo
 }
 
 func (h *GodotTwitch) readPollChoices(
-	godoCtx gd.Context, eventMsg lib.TwitchMessage,
+	eventMsg lib.TwitchMessage,
 	onlyBeginning bool,
-) gd.ArrayOf[gd.Dictionary] {
-	choicesArray := gd.NewArrayOf[gd.Dictionary](godoCtx)
+) []Choice {
+	var choicesArray []Choice
 	choicesInterfaces, ok := eventMsg.Payload.Event["choices"]
 	if !ok {
-		lib.LogErr(godoCtx, "poll without any choices")
+		lib.LogErr("poll without any choices")
 		return nil
 	}
 	choices := choicesInterfaces.([]interface{})
@@ -112,28 +110,28 @@ func (h *GodotTwitch) readPollChoices(
 		for _, choiceInterface := range choices {
 			choice, ok := choiceInterface.(map[string]interface{})
 			if !ok {
-				lib.LogErr(godoCtx, fmt.Sprintf("error converting single choice: expected map[string]interface{} but got %T", choiceInterface))
+				lib.LogErr(fmt.Sprintf("error converting single choice: expected map[string]interface{} but got %T", choiceInterface))
 				return nil
 			}
 
-			choiceID := h.readStringFromEvent(godoCtx, choice, "id")
-			choiceName := h.readStringFromEvent(godoCtx, choice, "title")
+			choiceID := h.readStringFromEvent(choice, "id")
+			choiceName := h.readStringFromEvent(choice, "title")
 
-			choiceDict := godoCtx.Dictionary()
-			choiceDict.SetIndex(godoCtx.Variant(godoCtx.String("id")), godoCtx.Variant(choiceID))
-			choiceDict.SetIndex(godoCtx.Variant(godoCtx.String("title")), godoCtx.Variant(choiceName))
+			var choiceDict Choice
+			choiceDict.ID = choiceID
+			choiceDict.Title = choiceName
 
 			if !onlyBeginning {
-				bitsVoted := h.readIntFromEvent(godoCtx, choice, "bits_votes")
-				pointsVoted := h.readIntFromEvent(godoCtx, choice, "channel_points_votes")
-				totalVoted := h.readIntFromEvent(godoCtx, choice, "votes")
+				bitsVoted := h.readIntFromEvent(choice, "bits_votes")
+				pointsVoted := h.readIntFromEvent(choice, "channel_points_votes")
+				totalVoted := h.readIntFromEvent(choice, "votes")
 
-				choiceDict.SetIndex(godoCtx.Variant(godoCtx.String("bits_votes")), godoCtx.Variant(bitsVoted))
-				choiceDict.SetIndex(godoCtx.Variant(godoCtx.String("channel_points_votes")), godoCtx.Variant(pointsVoted))
-				choiceDict.SetIndex(godoCtx.Variant(godoCtx.String("votes")), godoCtx.Variant(totalVoted))
+				choiceDict.BitsVoted = bitsVoted
+				choiceDict.ChannelPointsVoted = pointsVoted
+				choiceDict.Votes = totalVoted
 			}
 
-			choicesArray.Append(choiceDict)
+			choicesArray = append(choicesArray, choiceDict)
 		}
 	}
 
@@ -141,13 +139,13 @@ func (h *GodotTwitch) readPollChoices(
 }
 
 func (h *GodotTwitch) readPredictionOutComes(
-	godoCtx gd.Context, eventMsg lib.TwitchMessage,
+	eventMsg lib.TwitchMessage,
 	onlyBeginning bool, withWinnings bool,
-) gd.ArrayOf[gd.Dictionary] {
-	outcomesArray := gd.NewArrayOf[gd.Dictionary](godoCtx)
+) []PredictionOutcome {
+	var outcomesArray []PredictionOutcome
 	outcomesInterfaces, ok := eventMsg.Payload.Event["outcomes"]
 	if !ok {
-		lib.LogErr(godoCtx, "prediction without any outcomes")
+		lib.LogErr("prediction without any outcomes")
 		return nil
 	}
 	outcomes := outcomesInterfaces.([]interface{})
@@ -155,61 +153,61 @@ func (h *GodotTwitch) readPredictionOutComes(
 		for _, outcomeInterface := range outcomes {
 			outcome, ok := outcomeInterface.(map[string]interface{})
 			if !ok {
-				lib.LogErr(godoCtx, fmt.Sprintf("error converting single outcome: expected map[string]interface{} but got %T", outcomeInterface))
+				lib.LogErr(fmt.Sprintf("error converting single outcome: expected map[string]interface{} but got %T", outcomeInterface))
 				return nil
 			}
 
-			outcomeID := h.readStringFromEvent(godoCtx, outcome, "id")
-			outcomeName := h.readStringFromEvent(godoCtx, outcome, "title")
-			outcomeColor := h.readStringFromEvent(godoCtx, outcome, "color")
+			outcomeID := h.readStringFromEvent(outcome, "id")
+			outcomeName := h.readStringFromEvent(outcome, "title")
+			outcomeColor := h.readStringFromEvent(outcome, "color")
 
-			outcomeDict := godoCtx.Dictionary()
-			outcomeDict.SetIndex(godoCtx.Variant(godoCtx.String("id")), godoCtx.Variant(outcomeID))
-			outcomeDict.SetIndex(godoCtx.Variant(godoCtx.String("title")), godoCtx.Variant(outcomeName))
-			outcomeDict.SetIndex(godoCtx.Variant(godoCtx.String("color")), godoCtx.Variant(outcomeColor))
+			var outcomeDict PredictionOutcome
+			outcomeDict.ID = outcomeID
+			outcomeDict.Title = outcomeName
+			outcomeDict.Color = outcomeColor
 
 			if !onlyBeginning {
-				outcomeUsers := h.readIntFromEvent(godoCtx, outcome, "users")
-				outcomePoints := h.readIntFromEvent(godoCtx, outcome, "channel_points")
+				outcomeUsers := h.readIntFromEvent(outcome, "users")
+				outcomePoints := h.readIntFromEvent(outcome, "channel_points")
 
-				topPredictorsArray := gd.NewArrayOf[gd.Dictionary](godoCtx)
+				var topPredictorsArray []TopPredictor
 				topPredictorsInterface, ok := eventMsg.Payload.Event["top_predictors"]
 				if !ok {
-					lib.LogErr(godoCtx, "prediction without any top_predictors")
+					lib.LogErr("prediction without any top_predictors")
 				} else {
 					topPredictors := topPredictorsInterface.([]interface{})
 					if len(topPredictors) > 0 {
 						for _, topPredictorInterface := range topPredictors {
 							topPredictor, ok := topPredictorInterface.(map[string]interface{})
 							if !ok {
-								lib.LogErr(godoCtx, fmt.Sprintf("error converting single top predictor: expected map[string]interface{} but got %T", topPredictorInterface))
+								lib.LogErr(fmt.Sprintf("error converting single top predictor: expected map[string]interface{} but got %T", topPredictorInterface))
 								return nil
 							}
 
-							tpID := h.readStringFromEvent(godoCtx, topPredictor, "user_id")
-							tpName := h.readStringFromEvent(godoCtx, topPredictor, "user_name")
-							tpPoints := h.readIntFromEvent(godoCtx, topPredictor, "channel_points_used")
+							tpID := h.readStringFromEvent(topPredictor, "user_id")
+							tpName := h.readStringFromEvent(topPredictor, "user_name")
+							tpPoints := h.readIntFromEvent(topPredictor, "channel_points_used")
 
-							topPredictorDict := godoCtx.Dictionary()
-							topPredictorDict.SetIndex(godoCtx.Variant(godoCtx.String("user_id")), godoCtx.Variant(tpID))
-							topPredictorDict.SetIndex(godoCtx.Variant(godoCtx.String("user_name")), godoCtx.Variant(tpName))
-							topPredictorDict.SetIndex(godoCtx.Variant(godoCtx.String("channel_points_used")), godoCtx.Variant(tpPoints))
+							var topPredictorDict TopPredictor
+							topPredictorDict.UserID = tpID
+							topPredictorDict.UserName = tpName
+							topPredictorDict.ChannelPointsUsed = tpPoints
 							if withWinnings {
-								tpWon := h.readIntFromEvent(godoCtx, topPredictor, "channel_points_won")
-								topPredictorDict.SetIndex(godoCtx.Variant(godoCtx.String("channel_points_won")), godoCtx.Variant(tpWon))
+								tpWon := h.readIntFromEvent(topPredictor, "channel_points_won")
+								topPredictorDict.ChannelPointsWon = tpWon
 							}
 
-							topPredictorsArray.Append(topPredictorDict)
+							topPredictorsArray = append(topPredictorsArray, topPredictorDict)
 						}
 					}
 				}
 
-				outcomeDict.SetIndex(godoCtx.Variant(godoCtx.String("users")), godoCtx.Variant(outcomeUsers))
-				outcomeDict.SetIndex(godoCtx.Variant(godoCtx.String("channel_points")), godoCtx.Variant(outcomePoints))
-				outcomeDict.SetIndex(godoCtx.Variant(godoCtx.String("top_predictors")), godoCtx.Variant(topPredictorsArray))
+				outcomeDict.Users = outcomeUsers
+				outcomeDict.ChannelPoints = outcomePoints
+				outcomeDict.TopPredictors = topPredictorsArray
 			}
 
-			outcomesArray.Append(outcomeDict)
+			outcomesArray = append(outcomesArray, outcomeDict)
 		}
 	}
 
