@@ -3,14 +3,13 @@ package node
 import (
 	"fmt"
 	"main/lib"
-	"math"
 	"time"
 
 	"github.com/nicklaw5/helix/v2"
-	"grow.graphics/gd"
+	"graphics.gd/variant/Float"
 )
 
-func (h *GodotTwitch) handleEventTick(godoCtx gd.Context) {
+func (h *GodotTwitch) handleEventTick() {
 	h.eventProcessLock.Lock()
 	defer h.eventProcessLock.Unlock()
 
@@ -19,232 +18,229 @@ func (h *GodotTwitch) handleEventTick(godoCtx gd.Context) {
 	}
 
 	for _, msg := range h.eventProcessQueue {
-		h.handleEvent(godoCtx, msg)
+		h.handleEvent(msg)
 	}
 	h.eventProcessQueue = make([]lib.TwitchMessage, 0)
 }
 
-func (h *GodotTwitch) handleEvent(godoCtx gd.Context, eventMsg lib.TwitchMessage) {
+func (h *GodotTwitch) handleEvent(eventMsg lib.TwitchMessage) {
 	if eventMsg.Payload.Subscription == nil {
 		fmt.Printf("%+v\n", eventMsg)
-		lib.LogWarn(godoCtx, fmt.Sprintf("received non subscribtion event: %s", eventMsg.Metadata.Type))
+		lib.LogWarn(fmt.Sprintf("received non subscribtion event: %s", eventMsg.Metadata.Type))
 		return
 	}
 
-	lib.LogInfo(godoCtx, fmt.Sprintf("received event for: %s", eventMsg.Payload.Subscription.Type))
+	lib.LogInfo(fmt.Sprintf("received event for: %s", eventMsg.Payload.Subscription.Type))
 
 	switch eventMsg.Payload.Subscription.Type {
 	case helix.EventSubTypeChannelFollow:
-		tmpName := h.readStringFromEvent(godoCtx, eventMsg.Payload.Event, "user_name")
+		tmpName := h.readStringFromEvent(eventMsg.Payload.Event, "user_name")
 
-		h.LatestFollower.Free()
-		h.LatestFollower = h.Pin().String(tmpName.String())
+		h.LatestFollower = tmpName
 
 		h.OnFollow.Emit(tmpName)
 	case helix.EventSubTypeChannelSubscription:
-		tmpName := h.readStringFromEvent(godoCtx, eventMsg.Payload.Event, "user_name")
+		tmpName := h.readStringFromEvent(eventMsg.Payload.Event, "user_name")
 
-		h.LatestSubscriber.Free()
-		h.LatestSubscriber = h.Pin().String(tmpName.String())
+		h.LatestSubscriber = tmpName
 
 		// only emit signal for non gift subs as we emit from the gift event for gifts and we
 		// we do not want double events
 		if !eventMsg.Payload.Event["is_gift"].(bool) {
-			tier := h.readIntFromEvent(godoCtx, eventMsg.Payload.Event, "tier")
-			h.OnSubscibtion.Emit(tmpName, gd.Int(1), tier)
+			tier := h.readIntFromEvent(eventMsg.Payload.Event, "tier")
+			h.OnSubscibtion.Emit(tmpName, 1, tier)
 		}
 	case helix.EventSubTypeChannelSubscriptionMessage:
-		tmpName := h.readStringFromEvent(godoCtx, eventMsg.Payload.Event, "user_name")
+		tmpName := h.readStringFromEvent(eventMsg.Payload.Event, "user_name")
 
-		h.LatestSubscriber.Free()
-		h.LatestSubscriber = h.Pin().String(tmpName.String())
+		h.LatestSubscriber = tmpName
 
-		tier := h.readIntFromEvent(godoCtx, eventMsg.Payload.Event, "tier")
+		tier := h.readIntFromEvent(eventMsg.Payload.Event, "tier")
 		if tier >= 1000 {
 			tier = tier % 1000
 		}
-		months := h.readIntFromEvent(godoCtx, eventMsg.Payload.Event, "cumulative_months")
+		months := h.readIntFromEvent(eventMsg.Payload.Event, "cumulative_months")
 		h.OnSubscibtion.Emit(tmpName, months, tier)
 	case helix.EventSubTypeChannelSubscriptionGift:
-		isAnonymous := h.readBoolFromEvent(godoCtx, eventMsg.Payload.Event, "is_anonymous")
-		var gifterName gd.String
-		var totalAmountForUser gd.Int
+		isAnonymous := h.readBoolFromEvent(eventMsg.Payload.Event, "is_anonymous")
+		var gifterName string
+		var totalAmountForUser int
 		if !isAnonymous {
-			gifterName = h.readStringFromEvent(godoCtx, eventMsg.Payload.Event, "user_name")
-			totalAmountForUser = h.readIntFromEvent(godoCtx, eventMsg.Payload.Event, "cumulative_total")
+			gifterName = h.readStringFromEvent(eventMsg.Payload.Event, "user_name")
+			totalAmountForUser = h.readIntFromEvent(eventMsg.Payload.Event, "cumulative_total")
 		} else {
-			gifterName = h.Pin().String("")
+			gifterName = ""
 		}
-		tier := h.readIntFromEvent(godoCtx, eventMsg.Payload.Event, "tier")
-		giftAmount := h.readIntFromEvent(godoCtx, eventMsg.Payload.Event, "total")
+		tier := h.readIntFromEvent(eventMsg.Payload.Event, "tier")
+		giftAmount := h.readIntFromEvent(eventMsg.Payload.Event, "total")
 
 		h.OnGiftSubs.Emit(gifterName, giftAmount, tier, totalAmountForUser)
 	case helix.EventSubTypeChannelRaid:
-		fromUserID := h.readStringFromEvent(godoCtx, eventMsg.Payload.Event, "from_broadcaster_user_id")
-		fromUser := h.readStringFromEvent(godoCtx, eventMsg.Payload.Event, "from_broadcaster_user_name")
-		viewerCount := h.readIntFromEvent(godoCtx, eventMsg.Payload.Event, "viewers")
+		fromUserID := h.readStringFromEvent(eventMsg.Payload.Event, "from_broadcaster_user_id")
+		fromUser := h.readStringFromEvent(eventMsg.Payload.Event, "from_broadcaster_user_name")
+		viewerCount := h.readIntFromEvent(eventMsg.Payload.Event, "viewers")
 
 		userResp, err := h.twitchClient.GetUsers(&helix.UsersParams{
-			IDs: []string{fromUserID.String()},
+			IDs: []string{fromUserID},
 		})
 		if err != nil {
-			lib.LogErr(godoCtx, fmt.Sprintf("unable to fetch user %s: %s", fromUserID.String(), err.Error()))
+			lib.LogErr(fmt.Sprintf("unable to fetch user %s: %s", fromUserID, err.Error()))
 			return
 		}
 		if len(userResp.Data.Users) <= 0 {
-			lib.LogErr(godoCtx, fmt.Sprintf("unable to fetch user %s: empty result", fromUserID.String()))
+			lib.LogErr(fmt.Sprintf("unable to fetch user %s: empty result", fromUserID))
 			return
 		}
 
 		userObj := userResp.Data.Users[0]
-		profilePicUrl := h.Pin().String(userObj.ProfileImageURL)
+		profilePicUrl := userObj.ProfileImageURL
 
 		h.OnIncomingRaid.Emit(fromUser, profilePicUrl, viewerCount)
 	case helix.EventSubTypeChannelPointsCustomRewardRedemptionAdd:
 		rewardInterface, ok := eventMsg.Payload.Event["reward"]
 		if !ok {
-			lib.LogErr(godoCtx, "missing event data: reward")
+			lib.LogErr("missing event data: reward")
 			return
 		}
 
 		reward := rewardInterface.(map[string]interface{})
-		fromUser := h.readStringFromEvent(godoCtx, eventMsg.Payload.Event, "user_name")
-		userInput := h.readStringFromEvent(godoCtx, eventMsg.Payload.Event, "user_input")
-		rewardID := h.readStringFromEvent(godoCtx, reward, "id")
-		rewardTitle := h.readStringFromEvent(godoCtx, reward, "title")
-		rewardPrompt := h.readStringFromEvent(godoCtx, reward, "prompt")
-		rewardCost := h.readIntFromEvent(godoCtx, reward, "cost")
+		fromUser := h.readStringFromEvent(eventMsg.Payload.Event, "user_name")
+		userInput := h.readStringFromEvent(eventMsg.Payload.Event, "user_input")
+		rewardID := h.readStringFromEvent(reward, "id")
+		rewardTitle := h.readStringFromEvent(reward, "title")
+		rewardPrompt := h.readStringFromEvent(reward, "prompt")
+		rewardCost := h.readIntFromEvent(reward, "cost")
 
 		h.OnRewardRedemtionAdd.Emit(
 			fromUser, userInput,
 			rewardID, rewardTitle, rewardPrompt, rewardCost,
 		)
 	case helix.EventSubShoutoutCreate:
-		broadcasterID := h.readStringFromEvent(godoCtx, eventMsg.Payload.Event, "to_broadcaster_user_id")
-		broadcasterName := h.readStringFromEvent(godoCtx, eventMsg.Payload.Event, "to_broadcaster_user_name")
+		broadcasterID := h.readStringFromEvent(eventMsg.Payload.Event, "to_broadcaster_user_id")
+		broadcasterName := h.readStringFromEvent(eventMsg.Payload.Event, "to_broadcaster_user_name")
 
 		userResp, err := h.twitchClient.GetUsers(&helix.UsersParams{
-			IDs: []string{broadcasterID.String()},
+			IDs: []string{broadcasterID},
 		})
 		if err != nil {
-			lib.LogErr(godoCtx, fmt.Sprintf("unable to fetch user %s: %s", broadcasterID.String(), err.Error()))
+			lib.LogErr(fmt.Sprintf("unable to fetch user %s: %s", broadcasterID, err.Error()))
 			return
 		}
 		if len(userResp.Data.Users) <= 0 {
-			lib.LogErr(godoCtx, fmt.Sprintf("unable to fetch user %s: empty result", broadcasterID.String()))
+			lib.LogErr(fmt.Sprintf("unable to fetch user %s: empty result", broadcasterID))
 			return
 		}
 
 		userObj := userResp.Data.Users[0]
-		profilePicUrl := h.Pin().String(userObj.ProfileImageURL)
+		profilePicUrl := userObj.ProfileImageURL
 
 		channelInfo, err := h.twitchClient.GetChannelInformation(&helix.GetChannelInformationParams{
-			BroadcasterIDs: []string{broadcasterID.String()},
+			BroadcasterIDs: []string{broadcasterID},
 		})
 		if err != nil {
-			lib.LogErr(godoCtx, fmt.Sprintf("unable to fetch channel info for %s: %s", broadcasterID.String(), err.Error()))
+			lib.LogErr(fmt.Sprintf("unable to fetch channel info for %s: %s", broadcasterID, err.Error()))
 			return
 		}
 		if len(channelInfo.Data.Channels) <= 0 {
-			lib.LogErr(godoCtx, fmt.Sprintf("unable to fetch channel %s: empty result", broadcasterID.String()))
+			lib.LogErr(fmt.Sprintf("unable to fetch channel %s: empty result", broadcasterID))
 			return
 		}
 
 		channelObj := channelInfo.Data.Channels[0]
-		lastGameName := h.Pin().String(channelObj.GameName)
-		lastStreamTitle := h.Pin().String(channelObj.Title)
+		lastGameName := channelObj.GameName
+		lastStreamTitle := channelObj.Title
 
 		h.OnShoutoutCreate.Emit(broadcasterName, profilePicUrl, lastGameName, lastStreamTitle)
 	case helix.EventSubTypeCharityDonation:
 		amountInterface, ok := eventMsg.Payload.Event["amount"]
 		if !ok {
-			lib.LogErr(godoCtx, "missing event data: amount")
+			lib.LogErr("missing event data: amount")
 			return
 		}
 
 		amount := amountInterface.(map[string]interface{})
 
-		donatorName := h.readStringFromEvent(godoCtx, eventMsg.Payload.Event, "user_name")
-		value := h.readIntFromEvent(godoCtx, amount, "value")
-		decimalPlaces := h.readIntFromEvent(godoCtx, amount, "decimal_places")
-		currency := h.readStringFromEvent(godoCtx, amount, "currency")
+		donatorName := h.readStringFromEvent(eventMsg.Payload.Event, "user_name")
+		value := h.readIntFromEvent(amount, "value")
+		decimalPlaces := h.readIntFromEvent(amount, "decimal_places")
+		currency := h.readStringFromEvent(amount, "currency")
 
-		valueFloat := float64(value)
+		valueFloat := Float.X(value)
 		if decimalPlaces > 0 {
-			valueFloat = float64(value) / math.Pow(10, float64(decimalPlaces))
+			valueFloat = Float.X(value) / Float.Pow(10, Float.X(decimalPlaces))
 		}
 
-		h.OnDonation.Emit(donatorName, gd.Float(valueFloat), currency)
+		h.OnDonation.Emit(donatorName, valueFloat, currency)
 	case helix.EventSubTypeChannelPollBegin:
-		title := h.readStringFromEvent(godoCtx, eventMsg.Payload.Event, "title")
-		endsAtStr := h.readStringFromEvent(godoCtx, eventMsg.Payload.Event, "ends_at")
-		endsAt, err := time.Parse(time.RFC3339, endsAtStr.String())
+		title := h.readStringFromEvent(eventMsg.Payload.Event, "title")
+		endsAtStr := h.readStringFromEvent(eventMsg.Payload.Event, "ends_at")
+		endsAt, err := time.Parse(time.RFC3339, endsAtStr)
 		if err != nil {
-			lib.LogErr(godoCtx, fmt.Sprintf("error converting timestamp: %s", err.Error()))
+			lib.LogErr(fmt.Sprintf("error converting timestamp: %s", err.Error()))
 			return
 		}
 
-		choicesArray := h.readPollChoices(godoCtx, eventMsg, true)
+		choicesArray := h.readPollChoices(eventMsg, true)
 		if choicesArray == nil {
 			return
 		}
 
-		h.OnPollBegin.Emit(title, gd.Int(endsAt.Unix()), choicesArray)
+		h.OnPollBegin.Emit(title, int(endsAt.Unix()), choicesArray)
 	case helix.EventSubTypeChannelPollProgress:
-		title := h.readStringFromEvent(godoCtx, eventMsg.Payload.Event, "title")
+		title := h.readStringFromEvent(eventMsg.Payload.Event, "title")
 
-		choicesArray := h.readPollChoices(godoCtx, eventMsg, false)
+		choicesArray := h.readPollChoices(eventMsg, false)
 		if choicesArray == nil {
 			return
 		}
 
 		h.OnPollProgress.Emit(title, choicesArray)
 	case helix.EventSubTypeChannelPollEnd:
-		title := h.readStringFromEvent(godoCtx, eventMsg.Payload.Event, "title")
+		title := h.readStringFromEvent(eventMsg.Payload.Event, "title")
 
-		choicesArray := h.readPollChoices(godoCtx, eventMsg, false)
+		choicesArray := h.readPollChoices(eventMsg, false)
 		if choicesArray == nil {
 			return
 		}
 
 		h.OnPollEnd.Emit(title, choicesArray)
 	case helix.EventSubTypeChannelPredictionBegin:
-		title := h.readStringFromEvent(godoCtx, eventMsg.Payload.Event, "title")
-		locksAtStr := h.readStringFromEvent(godoCtx, eventMsg.Payload.Event, "locks_at")
-		locksAt, err := time.Parse(time.RFC3339, locksAtStr.String())
+		title := h.readStringFromEvent(eventMsg.Payload.Event, "title")
+		locksAtStr := h.readStringFromEvent(eventMsg.Payload.Event, "locks_at")
+		locksAt, err := time.Parse(time.RFC3339, locksAtStr)
 		if err != nil {
-			lib.LogErr(godoCtx, fmt.Sprintf("error converting timestamp: %s", err.Error()))
+			lib.LogErr(fmt.Sprintf("error converting timestamp: %s", err.Error()))
 			return
 		}
 
-		outcomesArray := h.readPredictionOutComes(godoCtx, eventMsg, true, false)
+		outcomesArray := h.readPredictionOutComes(eventMsg, true, false)
 		if outcomesArray == nil {
 			return
 		}
 
-		h.OnPredictionBegin.Emit(title, gd.Int(locksAt.Unix()), outcomesArray)
+		h.OnPredictionBegin.Emit(title, int(locksAt.Unix()), outcomesArray)
 	case helix.EventSubTypeChannelPredictionProgress:
-		title := h.readStringFromEvent(godoCtx, eventMsg.Payload.Event, "title")
+		title := h.readStringFromEvent(eventMsg.Payload.Event, "title")
 
-		outcomesArray := h.readPredictionOutComes(godoCtx, eventMsg, false, false)
+		outcomesArray := h.readPredictionOutComes(eventMsg, false, false)
 		if outcomesArray == nil {
 			return
 		}
 
 		h.OnPredictionProgress.Emit(title, outcomesArray)
 	case helix.EventSubTypeChannelPredictionLock:
-		title := h.readStringFromEvent(godoCtx, eventMsg.Payload.Event, "title")
+		title := h.readStringFromEvent(eventMsg.Payload.Event, "title")
 
-		outcomesArray := h.readPredictionOutComes(godoCtx, eventMsg, false, false)
+		outcomesArray := h.readPredictionOutComes(eventMsg, false, false)
 		if outcomesArray == nil {
 			return
 		}
 
 		h.OnPredictionLock.Emit(title, outcomesArray)
 	case helix.EventSubTypeChannelPredictionEnd:
-		title := h.readStringFromEvent(godoCtx, eventMsg.Payload.Event, "title")
+		title := h.readStringFromEvent(eventMsg.Payload.Event, "title")
 
-		outcomesArray := h.readPredictionOutComes(godoCtx, eventMsg, false, true)
+		outcomesArray := h.readPredictionOutComes(eventMsg, false, true)
 		if outcomesArray == nil {
 			return
 		}
@@ -253,7 +249,7 @@ func (h *GodotTwitch) handleEvent(godoCtx gd.Context, eventMsg lib.TwitchMessage
 	}
 }
 
-func (h *GodotTwitch) handleApiUpdateTick(godoCtx gd.Context) {
+func (h *GodotTwitch) handleApiUpdateTick() {
 	h.apiInfoResponseLock.Lock()
 	defer h.apiInfoResponseLock.Unlock()
 
@@ -265,20 +261,19 @@ func (h *GodotTwitch) handleApiUpdateTick(godoCtx gd.Context) {
 		switch apiInfo := apiInfo.(type) {
 
 		case LatestFollowerUpdate:
-			if h.LatestFollower.String() != "" {
-				lib.LogInfo(godoCtx, "non empty follower string on api update. skip api update because event should bee more up to date")
+			if h.LatestFollower != "" {
+				lib.LogInfo("non empty follower string on api update. skip api update because event should bee more up to date")
 				continue
 			}
-			h.LatestFollower.Free()
-			h.LatestFollower = h.Pin().String(apiInfo.Username)
+
+			h.LatestFollower = apiInfo.Username
 
 		case LatestSubscriberUpdate:
-			if h.LatestSubscriber.String() != "" {
-				lib.LogInfo(godoCtx, "non empty follower string on api update. skip api update because event should bee more up to date")
+			if h.LatestSubscriber != "" {
+				lib.LogInfo("non empty follower string on api update. skip api update because event should bee more up to date")
 				continue
 			}
-			h.LatestSubscriber.Free()
-			h.LatestSubscriber = h.Pin().String(apiInfo.Username)
+			h.LatestSubscriber = apiInfo.Username
 		}
 	}
 	h.apiInfoResponseQueue = make([]interface{}, 0)

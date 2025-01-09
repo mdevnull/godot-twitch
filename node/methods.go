@@ -8,22 +8,24 @@ import (
 	"sync"
 
 	"github.com/nicklaw5/helix/v2"
-	"grow.graphics/gd"
+	"graphics.gd/classdb/FileAccess"
+	"graphics.gd/classdb/OS"
+	"graphics.gd/variant/Float"
 )
 
-func (h *GodotTwitch) Ready(godoCtx gd.Context) {
-	if h.ClientID.String() == "" || h.ClientSecret.String() == "" {
-		lib.LogErr(godoCtx, "missing client id or client secret")
+func (h *GodotTwitch) Ready() {
+	if h.ClientID == "" || h.ClientSecret == "" {
+		lib.LogErr("missing client id or client secret")
 		return
 	}
 
 	client, err := helix.NewClient(&helix.Options{
-		ClientID:     h.ClientID.String(),
-		ClientSecret: h.ClientSecret.String(),
+		ClientID:     h.ClientID,
+		ClientSecret: h.ClientSecret,
 		RedirectURI:  "http://localhost:8189/",
 	})
 	if err != nil {
-		lib.LogErr(godoCtx, fmt.Sprintf("unable to create client: %s\n", err.Error()))
+		lib.LogErr(fmt.Sprintf("unable to create client: %s\n", err.Error()))
 		return
 	}
 
@@ -36,11 +38,11 @@ func (h *GodotTwitch) Ready(godoCtx gd.Context) {
 			"moderator:read:followers", "moderator:read:shoutouts",
 		},
 	})
-	h.AuthURL = h.Pin().String(authURLString)
-	lib.LogInfo(godoCtx, authURLString)
+	h.AuthURL = authURLString
+	lib.LogInfo(authURLString)
 
-	h.LatestFollower = h.Pin().String("")
-	h.LatestSubscriber = h.Pin().String("")
+	h.LatestFollower = ""
+	h.LatestSubscriber = ""
 
 	h.apiInfoResponseLock = sync.Mutex{}
 	h.apiInfoResponseQueue = make([]interface{}, 0)
@@ -48,10 +50,10 @@ func (h *GodotTwitch) Ready(godoCtx gd.Context) {
 	h.eventProcessQueue = make([]lib.TwitchMessage, 0)
 	h.twitchClient = client
 
-	h.IsAuthenticated = gd.Bool(false)
+	h.IsAuthenticated = false
 	// check if we have a access and refresh token to load
 	if bool(h.StoreToken) {
-		h.IsAuthenticated = gd.Bool(h.readTokens(godoCtx))
+		h.IsAuthenticated = h.readTokens()
 	}
 
 	go func() {
@@ -113,7 +115,7 @@ func (h *GodotTwitch) Ready(godoCtx gd.Context) {
 				}
 
 				// every time we (re)connect we have to subscribwe events again
-				lib.EventSetup(godoCtx, client, wsSessionID, broadcasterUserID)
+				lib.EventSetup(client, wsSessionID, broadcasterUserID)
 
 			case msg := <-msgChan:
 				h.eventProcessLock.Lock()
@@ -124,67 +126,63 @@ func (h *GodotTwitch) Ready(godoCtx gd.Context) {
 	}()
 }
 
-func (h *GodotTwitch) Process(godoCtx gd.Context, delta gd.Float) {
+func (h *GodotTwitch) Process(delta Float.X) {
 	if h.hasNewToken {
 		h.hasNewToken = false
 		h.IsAuthenticated = true
 
 		if bool(h.StoreToken) {
-			var fa gd.FileAccess
-			accessWriteFa := fa.Open(godoCtx, godoCtx.String("user://twitch_access_token.txt"), gd.FileAccessModeFlags(2))
-			accessWriteFa.StoreString(godoCtx.String(h.twitchClient.GetUserAccessToken()))
+			var accessWriteFa FileAccess.Instance = FileAccess.Open("user://twitch_access_token.txt", FileAccess.Write)
+			accessWriteFa.StoreString(h.twitchClient.GetUserAccessToken())
 
-			refreshWriteFa := fa.Open(godoCtx, godoCtx.String("user://twitch_refresh_token.txt"), gd.FileAccessModeFlags(2))
-			refreshWriteFa.StoreString(godoCtx.String(h.twitchClient.GetRefreshToken()))
+			var refreshWriteFa FileAccess.Instance = FileAccess.Open("user://twitch_refresh_token.txt", FileAccess.Write)
+			refreshWriteFa.StoreString(h.twitchClient.GetRefreshToken())
 		}
 	}
 
-	h.handleApiUpdateTick(godoCtx)
-	h.handleEventTick(godoCtx)
+	h.handleApiUpdateTick()
+	h.handleEventTick()
 }
 
-func (h *GodotTwitch) OpenAuthInBrowser(godoCtx gd.Context) {
-	godotOS := gd.OS(godoCtx)
-
+func (h *GodotTwitch) OpenAuthInBrowser() {
 	var openCmd *exec.Cmd
-	switch strings.ToLower(godotOS.GetName(godoCtx).String()) {
+	switch strings.ToLower(OS.GetName()) {
 	case "windows":
-		winQuotedURL := strings.ReplaceAll(h.AuthURL.String(), "&", "^&")
+		winQuotedURL := strings.ReplaceAll(h.AuthURL, "&", "^&")
 		openCmd = exec.Command("cmd", "/c", "start", winQuotedURL)
 	case "macos":
-		openCmd = exec.Command("open", h.AuthURL.String())
+		openCmd = exec.Command("open", h.AuthURL)
 	case "linux":
-		openCmd = exec.Command("xdg-open", h.AuthURL.String())
+		openCmd = exec.Command("xdg-open", h.AuthURL)
 	default:
-		lib.LogWarn(godoCtx, "unable to open browser on current platform")
+		lib.LogWarn("unable to open browser on current platform")
 		return
 	}
 
 	if err := openCmd.Run(); err != nil {
-		lib.LogErr(godoCtx, fmt.Sprintf(" error opening browser for auth: %s", err.Error()))
+		lib.LogErr(fmt.Sprintf(" error opening browser for auth: %s", err.Error()))
 	}
 }
 
-func (h *GodotTwitch) readTokens(godoCtx gd.Context) bool {
-	var fa gd.FileAccess
-	if !fa.FileExists(godoCtx, godoCtx.String("user://twitch_access_token.txt")) {
+func (h *GodotTwitch) readTokens() bool {
+	if !FileAccess.FileExists("user://twitch_access_token.txt") {
 		return false
 	}
-	if !fa.FileExists(godoCtx, godoCtx.String("user://twitch_refresh_token.txt")) {
-		return false
-	}
-
-	accessReadFa := fa.Open(godoCtx, godoCtx.String("user://twitch_access_token.txt"), gd.FileAccessModeFlags(1))
-	gdAccess := accessReadFa.GetAsText(godoCtx, true)
-
-	refreshReadFa := fa.Open(godoCtx, godoCtx.String("user://twitch_refresh_token.txt"), gd.FileAccessModeFlags(1))
-	gdRefresh := refreshReadFa.GetAsText(godoCtx, true)
-
-	if gdAccess.String() == "" || gdRefresh.String() == "" {
+	if !FileAccess.FileExists("user://twitch_refresh_token.txt") {
 		return false
 	}
 
-	h.twitchClient.SetUserAccessToken(gdAccess.String())
-	h.twitchClient.SetRefreshToken(gdRefresh.String())
+	accessReadFa := FileAccess.Open("user://twitch_access_token.txt", FileAccess.Read)
+	gdAccess := FileAccess.Instance(accessReadFa).GetAsText()
+
+	refreshReadFa := FileAccess.Open("user://twitch_refresh_token.txt", FileAccess.Read)
+	gdRefresh := FileAccess.Instance(refreshReadFa).GetAsText()
+
+	if gdAccess == "" || gdRefresh == "" {
+		return false
+	}
+
+	h.twitchClient.SetUserAccessToken(gdAccess)
+	h.twitchClient.SetRefreshToken(gdRefresh)
 	return true
 }
